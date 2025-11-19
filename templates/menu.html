@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Restaurant Menu</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        h1 { color: #333; }
+        .menu-container { display: flex; gap: 30px; }
+        .menu-items { flex: 3; display: flex; flex-wrap: wrap; gap: 20px; }
+        .menu-item {
+            border: 1px solid #ccc; border-radius: 10px; width: 220px; 
+            padding: 10px; text-align: center; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .menu-item img { width: 200px; height: 150px; border-radius: 8px; }
+        .cart {
+            flex: 1; border: 1px solid #aaa; padding: 15px; border-radius: 10px;
+            background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #chatbox {
+            width: 100%; height: 250px; border: 1px solid #aaa; overflow-y: auto;
+            padding: 10px; background: #fafafa; margin-top: 10px; border-radius: 8px;
+        }
+        #message { width: 80%; padding: 5px; border-radius: 5px; border: 1px solid #aaa; }
+        .bot { color: green; margin: 5px 0; }
+        .user { color: blue; margin: 5px 0; }
+        button {
+            background-color: #007bff; color: white; border: none;
+            padding: 8px 12px; border-radius: 5px; cursor: pointer;
+        }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Restaurant Menu</h1>
+    <p>Welcome, {{ user.username }} | <a href="{% url 'logout' %}">Logout</a></p>
+
+    <div class="menu-container">
+        <div class="menu-items">
+            {% if menu_items %}
+                {% for item in menu_items %}
+                    <div class="menu-item">
+                        {% if item.image %}
+                            <img src="{{ item.image }}" alt="{{ item.name }}">
+                        {% endif %}
+                        <h4>{{ item.name }}</h4>
+                        <p>₹{{ item.price }}</p>
+                        <button onclick="addToCart('{{ item.id }}', '{{ item.name|escapejs }}', {{ item.price }})">
+                            Add to Cart
+                        </button>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>No menu items available.</p>
+            {% endif %}
+        </div>
+
+        <div class="cart">
+            <h3>Your Cart</h3>
+            <ul id="cartList"></ul>
+            <p><strong>Total:</strong> ₹<span id="cartTotal">0</span></p>
+            <button onclick="placeOrder()">Place Order</button>
+        </div>
+    </div>
+
+    <h3>Chatbot (Order Assistant)</h3>
+    <div id="chatbox"></div>
+    <input type="text" id="message" placeholder="Example: Add 2 dosa or Show cart..." />
+    <button id="sendButton">Send</button>
+
+    <script>
+        async function refreshCart() {
+            const res = await fetch('/api/cart/');
+            const data = await res.json();
+            const cartList = document.getElementById('cartList');
+            cartList.innerHTML = '';
+            let total = 0;
+
+            data.cart.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = `${item.name} x ${item.qty} = ₹${item.price * item.qty}`;
+                cartList.appendChild(li);
+                total += item.price * item.qty;
+            });
+
+            document.getElementById('cartTotal').textContent = total.toFixed(2);
+        }
+
+        async function addToCart(id, name, price) {
+            const res = await fetch('/api/cart/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    action: 'add',
+                    item: { id, name, price, qty: 1 }
+                })
+            });
+            await res.json();
+            await refreshCart();
+        }
+
+        async function placeOrder() {
+            const res = await fetch('/api/order/', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success') {
+                alert(`Order placed successfully! Total amount: ₹${data.total}`);
+                await refreshCart();
+            } else {
+                alert('Failed to place order');
+            }
+        }
+
+        async function sendMessage() {
+            const msg = document.getElementById('message').value;
+            if (!msg.trim()) return;
+
+            const chatbox = document.getElementById('chatbox');
+            chatbox.innerHTML += `<div class='user'><strong>You:</strong> ${msg}</div>`;
+            document.getElementById('message').value = '';
+
+            try {
+                const res = await fetch('/api/chat/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+
+                if (data.reply) {
+                    chatbox.innerHTML += `<div class='bot'><strong>Bot:</strong> ${data.reply}</div>`;
+                } else {
+                    chatbox.innerHTML += `<div class='bot'><strong>Bot:</strong> Sorry, I didn’t understand.</div>`;
+                }
+
+                chatbox.scrollTop = chatbox.scrollHeight;
+
+                if (data.cart) {
+                    await refreshCart();
+                }
+            } catch (error) {
+                chatbox.innerHTML += `<div class='bot'><strong>Bot:</strong> Error connecting to server.</div>`;
+            }
+        }
+
+        document.getElementById('sendButton').addEventListener('click', sendMessage);
+        document.getElementById('message').addEventListener('keypress', e => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        refreshCart();
+    </script>
+</body>
+</html>

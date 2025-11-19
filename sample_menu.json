@@ -1,0 +1,41 @@
+{
+  "restaurant": "Demo Diner",
+  "currency": "INR",
+  "items": [
+    {
+      "id": 1,
+      "name": "Plain Dosa",
+      "price": 50.0,
+      "category": "Breakfast",
+      "description": "Crispy plain dosa"
+    },
+    {
+      "id": 2,
+      "name": "Masala Dosa",
+      "price": 80.0,
+      "category": "Breakfast",
+      "description": "Dosa with spiced potato filling"
+    },
+    {
+      "id": 3,
+      "name": "Margherita Pizza",
+      "price": 250.0,
+      "category": "Pizza",
+      "description": "Classic cheese pizza"
+    },
+    {
+      "id": 4,
+      "name": "Paneer Butter Masala",
+      "price": 180.0,
+      "category": "Main Course",
+      "description": "Rich paneer curry"
+    },
+    {
+      "id": 5,
+      "name": "Coke 500ml",
+      "price": 40.0,
+      "category": "Drinks",
+      "description": "Chilled beverage"
+    }
+  ]
+}

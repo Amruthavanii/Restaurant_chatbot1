@@ -1,0 +1,97 @@
+Django==4.2.7
+python-dotenv==1.0.0
+pymysql==1.1.0
+requests==2.31.0
+
+
+@csrf_exempt
+def api_chat(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Only POST method is allowed"}, status=405)
+
+    data = json.loads(request.body.decode("utf-8"))
+    user_message = data.get("message", "").strip().lower()
+
+    if not user_message:
+        return JsonResponse({"reply": "Please say something!"})
+
+    cart = request.session.get('cart', [])
+
+    if any(word in user_message for word in ["add", "order", "want", "get", "buy"]):
+        quantity = 1
+        item_name = user_message
+
+        parts = user_message.split()
+        for i, word in enumerate(parts):
+            if word.isdigit():
+                quantity = int(word)
+                item_name = " ".join(parts[i+1:])
+                break
+            elif word.replace(",", "").isdigit():  
+                quantity = int(word.replace(",", ""))
+                item_name = " ".join(parts[i+1:])
+                break
+
+        if not item_name:
+            return JsonResponse({"reply": "Please tell me what item you'd like to order."})
+
+        found = False
+        for item in cart:
+            if item_name.lower() in item['name'].lower():
+                item['qty'] += quantity
+                found = True
+                break
+
+        if not found:
+            cart.append({
+                'id': len(cart) + 1,
+                'name': item_name.title(),
+                'price': 120,  
+                'qty': quantity
+            })
+
+        request.session['cart'] = cart
+        request.session.modified = True
+
+        reply = f"Added {quantity} {item_name}(s) to your cart."
+
+        return JsonResponse({
+            "reply": reply,
+            "cart": cart
+        })
+
+    elif any(word in user_message for word in ["show cart", "my cart", "what's in my cart"]):
+        if not cart:
+            return JsonResponse({"reply": "Your cart is empty."})
+        cart_items = ", ".join([f"{it['qty']} x {it['name']}" for it in cart])
+        total = sum(it['price'] * it['qty'] for it in cart)
+        return JsonResponse({
+            "reply": f"Your cart has {cart_items}. Total = ₹{total}.",
+            "cart": cart
+        })
+
+    elif any(word in user_message for word in ["cancel", "clear cart", "remove all"]):
+        request.session['cart'] = []
+        request.session.modified = True
+        return JsonResponse({"reply": "Your cart has been cleared.", "cart": []})
+
+    elif any(word in user_message for word in ["place order", "confirm order"]):
+        if not cart:
+            return JsonResponse({"reply": "Your cart is empty. Please add something first."})
+
+        total = sum(it['price'] * it['qty'] for it in cart)
+        order_details = ", ".join([f"{it['qty']} x {it['name']}" for it in cart])
+
+
+        request.session['cart'] = []
+        request.session.modified = True
+
+        return JsonResponse({
+            "reply": f"Your order for {order_details} has been placed successfully! Total = ₹{total}.",
+            "cart": []
+        })
+
+    else:
+        return JsonResponse({
+            "reply": "I didn't understand that. You can say things like 'add 2 dosa', 'show cart', or 'place order'."
+        })
